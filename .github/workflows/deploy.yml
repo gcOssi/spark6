@@ -6,26 +6,22 @@ on:
     paths:
       - 'frontend/**'
       - 'backend/**'
-      - '.github/workflows/deploy-ecs-staging.yml'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
-  id-token: write   # for GitHub OIDC
+  id-token: write   # GitHub OIDC
   contents: read
 
 concurrency:
   group: deploy-staging
   cancel-in-progress: true
 
+# Sólo valores “base” aquí (sin referencias a env)
 env:
   AWS_REGION: us-east-1
   PROJECT_NAME: staging-dashboard
-  CLUSTER_NAME: ${{ env.PROJECT_NAME }}-cluster
-  SERVICE_NAME: ${{ env.PROJECT_NAME }}-svc
   IMAGE_TAG: ${{ github.sha }}
-  # Repos ECR se forman con la cuenta + región + project_name
-  ECR_FRONTEND: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend
-  ECR_BACKEND:  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-backend
 
 jobs:
   build-and-deploy:
@@ -41,8 +37,15 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Derive env vars
+        shell: bash
+        run: |
+          echo "CLUSTER_NAME=${PROJECT_NAME}-cluster" >> $GITHUB_ENV
+          echo "SERVICE_NAME=${PROJECT_NAME}-svc" >> $GITHUB_ENV
+          echo "ECR_FRONTEND=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-frontend" >> $GITHUB_ENV
+          echo "ECR_BACKEND=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-backend" >> $GITHUB_ENV
+
       - name: Login to Amazon ECR
-        id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set up Docker Buildx
@@ -52,10 +55,10 @@ jobs:
         run: |
           docker build \
             --platform linux/amd64 \
-            -t "$ECR_BACKEND:$IMAGE_TAG" \
+            -t "$ECR_BACKEND:${IMAGE_TAG}" \
             -t "$ECR_BACKEND:latest" \
             ./backend
-          docker push "$ECR_BACKEND:$IMAGE_TAG"
+          docker push "$ECR_BACKEND:${IMAGE_TAG}"
           docker push "$ECR_BACKEND:latest"
 
       - name: Build & Push FRONTEND (linux/amd64)
@@ -65,10 +68,10 @@ jobs:
           docker build \
             --platform linux/amd64 \
             --build-arg REACT_APP_API_URL=$REACT_APP_API_URL \
-            -t "$ECR_FRONTEND:$IMAGE_TAG" \
+            -t "$ECR_FRONTEND:${IMAGE_TAG}" \
             -t "$ECR_FRONTEND:latest" \
             ./frontend
-          docker push "$ECR_FRONTEND:$IMAGE_TAG"
+          docker push "$ECR_FRONTEND:${IMAGE_TAG}"
           docker push "$ECR_FRONTEND:latest"
 
       - name: Prepare new task definition with updated images
@@ -80,14 +83,14 @@ jobs:
             --task-definition "$FAMILY" \
             --query taskDefinition > td.json
 
-          # Sustituye imagenes por tag del commit manteniendo el resto intacto
-          cat td.json | jq \
-            --arg fe "$ECR_FRONTEND:$IMAGE_TAG" \
-            --arg be "$ECR_BACKEND:$IMAGE_TAG" \
+          # swap images to new tags, keep everything else
+          jq \
+            --arg fe "$ECR_FRONTEND:${IMAGE_TAG}" \
+            --arg be "$ECR_BACKEND:${IMAGE_TAG}" \
             '(.containerDefinitions[] | select(.name=="frontend").image) |= $fe |
              (.containerDefinitions[] | select(.name=="backend").image)  |= $be |
              del(.revision, .status, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            > td-new.json
+            td.json > td-new.json
 
           NEW_TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://td-new.json \
@@ -99,12 +102,12 @@ jobs:
       - name: Update ECS service to new task definition
         run: |
           aws ecs update-service \
-            --cluster "$CLUSTER_NAME" \
-            --service "$SERVICE_NAME" \
+            --cluster "${CLUSTER_NAME}" \
+            --service "${SERVICE_NAME}" \
             --task-definition "${{ steps.taskdef.outputs.NEW_TD_ARN }}"
 
       - name: Wait for service stability
         run: |
           aws ecs wait services-stable \
-            --cluster "$CLUSTER_NAME" \
-            --services "$SERVICE_NAME"
+            --cluster "${CLUSTER_NAME}" \
+            --services "${SERVICE_NAME}"
