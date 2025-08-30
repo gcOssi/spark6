@@ -82,7 +82,7 @@ jobs:
             -backend-config="dynamodb_table=${TF_BACKEND_DDB_TABLE}" \
             -backend-config="encrypt=true"
       
-      - name: Import IAM role if it already exists
+      - name: Import IAM role if it already exist
         working-directory: ./infrastructure
         shell: bash
         run: |
