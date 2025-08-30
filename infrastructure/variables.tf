@@ -35,11 +35,6 @@ variable "basic_auth_password" {
   default = "staging"
 }
 
-# Alerts
-variable "alert_email" {
-  type = string
-}
-
 # HTTPS options
 variable "acm_certificate_arn" {
   type        = string
