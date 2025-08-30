@@ -87,7 +87,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ROLE_NAME="staging-github-oidc"
+          ROLE_NAME="staging-dashboard-gha"
           if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
             if ! terraform state show aws_iam_role.staging-dashboard-gha >/dev/null 2>&1; then
               terraform import aws_iam_role.staging-dashboard-gha "$ROLE_NAME"
