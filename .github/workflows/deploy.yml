@@ -86,7 +86,7 @@ jobs:
             fi
           done
 
-      - name: Build & Push BACKEND (linux/amd64)
+      - name: Build & Push BACKEND (linux)
         run: |
           docker build \
             --platform linux/amd64 \
