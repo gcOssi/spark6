@@ -173,6 +173,7 @@ resource "aws_ecr_repository" "backend" {
   force_delete = true
 }
 
+
 ######################
 # IAM for ECS        #
 ######################
