@@ -1,0 +1,210 @@
+/* Contenedor principal de autenticación */
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+  }
+  
+  .auth-card {
+    background: white;
+    border-radius: 20px;
+    padding: 3rem;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 450px;
+    animation: fadeInUp 0.6s ease-out;
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Header del formulario */
+  .auth-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .auth-header h2 {
+    color: #343a40;
+    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+  }
+  
+  .auth-header p {
+    color: #6c757d;
+    font-size: 1rem;
+  }
+  
+  /* Formulario */
+  .auth-form .form-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .auth-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #495057;
+  }
+  
+  .auth-form input {
+    width: 100%;
+    padding: 0.875rem;
+    border: 2px solid #ced4da;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+  }
+  
+  .auth-form input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  /* Botones */
+  .form-actions {
+    margin: 2rem 0 1.5rem;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 50px;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  }
+  
+  .btn-primary:disabled {
+    opacity: 0.8;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  /* Spinner pequeño */
+  .spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  /* Cambio de modo */
+  .auth-switch {
+    text-align: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+  }
+  
+  .auth-switch p {
+    color: #6c757d;
+    margin-bottom: 0;
+  }
+  
+  .switch-btn {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+  }
+  
+  .switch-btn:hover:not(:disabled) {
+    color: #5a6fd8;
+  }
+  
+  .switch-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  /* Credenciales de demo */
+  .demo-credentials {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+  }
+  
+  .demo-credentials p {
+    margin-bottom: 1rem;
+    color: #495057;
+    font-size: 0.9rem;
+  }
+  
+  .demo-user {
+    margin-bottom: 0.5rem;
+  }
+  
+  .demo-user span {
+    color: #6c757d;
+    font-size: 0.85rem;
+  }
+  
+  .demo-user code {
+    background: #e9ecef;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #495057;
+  }
+  
+  /* Error message en auth */
+  .auth-form .error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid #f5c6cb;
+    font-size: 0.9rem;
+  }
+  
+  /* Responsive */
+  @media (max-width: 480px) {
+    .auth-card {
+      padding: 2rem 1.5rem;
+      margin: 10px;
+    }
+    
+    .auth-header h2 {
+      font-size: 1.5rem;
+    }
+    
+    .demo-credentials {
+      padding: 1rem;
+    }
+  }
