@@ -561,7 +561,7 @@ data "aws_iam_policy_document" "gha_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:{var.github_owner}/${var.github_repo}:environment:staging","repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main"]
+      values   = ["repo:{var.GH_OWNER}/${var.GH_REPO}:environment:staging","repo:${var.GH_OWNER}/${var.GH_REPO}:ref:refs/heads/main"]
     }
   }
 }

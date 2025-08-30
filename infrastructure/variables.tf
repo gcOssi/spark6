@@ -24,6 +24,12 @@ variable "gh_repo" {
   description = "GitHub repo usado en el OIDC condition"
 }
 
+variable "alarm_email" {
+  type        = string
+  description = "Email to subscribe to SNS alerts"
+  default     = "gcabrera@binarios.cl"
+}
+
 # Basic auth for staging
 variable "basic_auth_user" {
   type    = string
