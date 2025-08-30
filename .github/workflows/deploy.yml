@@ -25,12 +25,25 @@ env:
 
 jobs:
   build-and-deploy:
+    environment: staging
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve ROLE ARN
+        env:
+          ROLE_FROM_SECRET: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          ROLE_FROM_VAR:    ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          ROLE="${ROLE_FROM_SECRET:-$ROLE_FROM_VAR}"
+          if [ -z "$ROLE" ]; then
+            echo "::error title=Missing role ARN::Define AWS_DEPLOY_ROLE_ARN as a secret or repository variable"
+            exit 1
+          fi
+          echo "ROLE_TO_ASSUME=$ROLE" >> $GITHUB_ENV
+          
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
