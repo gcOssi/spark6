@@ -38,7 +38,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: gha-${{ github.run_id }}
 
-      - name: Who am I?
+      - name: Who am I ?
         run: aws sts get-caller-identity
 
       - name: Derive env vars
