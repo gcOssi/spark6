@@ -88,10 +88,17 @@ jobs:
         run: |
           set -euo pipefail
           ROLE_NAME="staging-dashboard-gha"
+          ADDR="aws_iam_role.gha_deploy_role"
+
           if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
-            if ! terraform state show aws_iam_role.staging-dashboard-gha >/dev/null 2>&1; then
-              terraform import aws_iam_role.staging-dashboard-gha "$ROLE_NAME"
+            if ! terraform state show "$ADDR" >/dev/null 2>&1; then
+              echo "Importando IAM role existente $ROLE_NAME en Terraform state..."
+              terraform import "$ADDR" "$ROLE_NAME"
+            else
+              echo "IAM role ya está en el state, no es necesario importar."
             fi
+          else
+            echo "IAM role $ROLE_NAME no existe en AWS, Terraform lo creará en apply."
           fi
                   
       - name: Terraform Apply
