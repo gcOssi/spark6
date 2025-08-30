@@ -188,6 +188,21 @@ jobs:
           echo "NEW_TD_ARN=$NEW_TD_ARN" >> $GITHUB_OUTPUT
           echo "Registered: $NEW_TD_ARN"
 
+      - name: Check ECS cluster & service exist and are ACTIVE
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS=$(aws ecs describe-clusters --clusters "$CLUSTER_NAME" --query 'clusters[0].status' --output text 2>/dev/null || true)
+          if [[ -z "$STATUS" || "$STATUS" == "INACTIVE" || "$STATUS" == "None" ]]; then
+            echo "::error::ECS cluster '$CLUSTER_NAME' no existe o está INACTIVE. Ejecuta 'terraform apply' para (re)crear la infraestructura."
+            exit 1
+          fi
+
+          SVC=$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].status' --output text 2>/dev/null || true)
+          if [[ -z "$SVC" || "$SVC" == "INACTIVE" || "$SVC" == "None" ]]; then
+            echo "::error::ECS service '$SERVICE_NAME' no existe. Asegúrate de aprovisionarlo con Terraform."
+            exit 1
+          fi
 
       - name: Update ECS service to new task definition
         run: |
