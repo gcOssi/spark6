@@ -68,6 +68,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Ensure ECR repositories exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          for R in "${ECR_BACKEND}" "${ECR_FRONTEND}"; do
+            NAME="${R##*/}"  # toma solo el nombre del repo desde la URL
+            if ! aws ecr describe-repositories --repository-names "$NAME" >/dev/null 2>&1; then
+              echo "Creating ECR repo: $NAME"
+              aws ecr create-repository \
+                --repository-name "$NAME" \
+                --image-scanning-configuration scanOnPush=true \
+                --encryption-configuration encryptionType=KMS \
+                >/dev/null
+            else
+              echo "ECR repo exists: $NAME"
+            fi
+          done
+
       - name: Build & Push BACKEND (linux/amd64)
         run: |
           docker build \
