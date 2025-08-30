@@ -173,111 +173,6 @@ resource "aws_ecr_repository" "backend" {
   force_delete = true
 }
 
-##########################
-# Build & Push de imágenes
-##########################
-
-# Login a ECR antes de build/push
-resource "null_resource" "ecr_login" {
-  # Re-intenta login si cambias de región
-  triggers = {
-    region = var.aws_region
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-lc"]
-    command     = <<-EOT
-      set -euo pipefail
-      aws ecr get-login-password --region ${var.aws_region} \
-      | docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com
-    EOT
-  }
-}
-
-# Helper para flag de plataforma
-locals {
-  build_platform_flag = var.build_platform == "" ? "" : "--platform ${var.build_platform}"
-}
-
-# BACKEND: build & push
-resource "null_resource" "build_push_backend" {
-  depends_on = [
-    null_resource.ecr_login,
-    aws_ecr_repository.backend
-  ]
-
-  # Cambia el plan si cambian estos archivos/vars
-  triggers = {
-    dockerfile_sha = filesha1("${path.module}/../backend/Dockerfile")
-    pkg_json_sha   = filesha1("${path.module}/../backend/package.json")
-    image_tag      = var.image_tag
-    platform       = var.build_platform
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-lc"]
-    command     = <<-EOT
-      set -euo pipefail
-      REPO="${aws_ecr_repository.backend.repository_url}"
-      TAG="${var.image_tag}"
-      docker build ${local.build_platform_flag} -t "$REPO:$TAG" "${path.module}/../backend"
-      docker push "$REPO:$TAG"
-    EOT
-  }
-}
-
-# FRONTEND: build & push (pasa REACT_APP_API_URL al build)
-resource "null_resource" "build_push_frontend" {
-  depends_on = [
-    null_resource.ecr_login,
-    aws_ecr_repository.frontend
-  ]
-
-  triggers = {
-    dockerfile_sha = filesha1("${path.module}/../frontend/Dockerfile")
-    pkg_json_sha   = filesha1("${path.module}/../frontend/package.json")
-    image_tag      = var.image_tag
-    platform       = var.build_platform
-    api_url        = var.react_app_api_url
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-lc"]
-    command     = <<-EOT
-      set -euo pipefail
-      REPO="${aws_ecr_repository.frontend.repository_url}"
-      TAG="${var.image_tag}"
-      docker build ${local.build_platform_flag} \
-        --build-arg REACT_APP_API_URL="${var.react_app_api_url}" \
-        -t "$REPO:$TAG" "${path.module}/../frontend"
-      docker push "$REPO:$TAG"
-    EOT
-  }
-}
-
-# (Opcional) Forzar redeploy del servicio ECS tras el push
-resource "null_resource" "ecs_force_redeploy" {
-  depends_on = [
-    null_resource.build_push_backend,
-    null_resource.build_push_frontend,
-    aws_ecs_service.app
-  ]
-
-  triggers = {
-    redeploy = var.force_ecs_redeploy ? timestamp() : ""
-  }
-
-  provisioner "local-exec" {
-    when        = create
-    interpreter = ["/bin/bash", "-lc"]
-    command     = <<-EOT
-      set -euo pipefail
-      ${var.force_ecs_redeploy ? "aws ecs update-service --region ${var.aws_region} --cluster ${aws_ecs_cluster.this.name} --service ${aws_ecs_service.app.name} --force-new-deployment >/dev/null" : "echo 'force_ecs_redeploy=false; skip update-service'"}
-    EOT
-  }
-}
-
-
 ######################
 # IAM for ECS        #
 ######################
@@ -665,7 +560,7 @@ data "aws_iam_policy_document" "gha_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main","repo:{var.github_owner}/${var.github_repo}:environment:staging"]
+      values   = ["repo:{var.github_owner}/${var.github_repo}:environment:staging","repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main"]
     }
   }
 }
