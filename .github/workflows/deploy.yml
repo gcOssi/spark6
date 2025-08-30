@@ -50,18 +50,6 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
 
-      - name: Import IAM role if it already exists
-        working-directory: ./infrastructure
-        shell: bash
-        run: |
-          set -euo pipefail
-          ROLE_NAME="staging-github-oidc"
-          if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
-            if ! terraform state show aws_iam_role.github_actions_oidc >/dev/null 2>&1; then
-              terraform import aws_iam_role.github_actions_oidc "$ROLE_NAME"
-            fi
-          fi
-          
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -93,7 +81,19 @@ jobs:
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_BACKEND_DDB_TABLE}" \
             -backend-config="encrypt=true"
-          
+
+      - name: Import IAM role if it already exists
+        working-directory: ./infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROLE_NAME="staging-github-oidc"
+          if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+            if ! terraform state show aws_iam_role.github_actions_oidc >/dev/null 2>&1; then
+              terraform import aws_iam_role.github_actions_oidc "$ROLE_NAME"
+            fi
+          fi
+                  
       - name: Terraform Apply
         working-directory: ./infrastructure
         run: terraform apply -auto-approve -input=false
