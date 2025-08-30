@@ -43,7 +43,7 @@ jobs:
             exit 1
           fi
           echo "ROLE_TO_ASSUME=$ROLE" >> $GITHUB_ENV
-          
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -78,7 +78,7 @@ jobs:
           docker push "$ECR_BACKEND:${IMAGE_TAG}"
           docker push "$ECR_BACKEND:latest"
 
-      - name: Build & Push FRONTEND (linux/amd64)
+      - name: Build & Push FRONTEND
         env:
           REACT_APP_API_URL: /api
         run: |
