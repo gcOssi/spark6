@@ -1,73 +1,97 @@
-name: Deploy to ECS (staging)
+name: Provision & Deploy (staging)
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'frontend/**'
-      - 'backend/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
-  id-token: write   # GitHub OIDC
+  id-token: write
   contents: read
 
 concurrency:
   group: deploy-staging
   cancel-in-progress: true
 
-# Sólo valores “base” aquí (sin referencias a env)
 env:
   AWS_REGION: us-east-1
   PROJECT_NAME: staging-dashboard
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build-and-deploy:
-    environment: staging
+  provision-infra:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    outputs:
+      ECS_CLUSTER: ${{ steps.capture.outputs.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ steps.capture.outputs.ECS_SERVICE }}
+      ECR_FRONTEND: ${{ steps.capture.outputs.ECR_FRONTEND }}
+      ECR_BACKEND:  ${{ steps.capture.outputs.ECR_BACKEND }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Resolve ROLE ARN
-        env:
-          ROLE_FROM_SECRET: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          ROLE_FROM_VAR:    ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-        run: |
-          ROLE="${ROLE_FROM_SECRET:-$ROLE_FROM_VAR}"
-          if [ -z "$ROLE" ]; then
-            echo "::error title=Missing role ARN::Define AWS_DEPLOY_ROLE_ARN as a secret or repository variable"
-            exit 1
-          fi
-          echo "ROLE_TO_ASSUME=$ROLE" >> $GITHUB_ENV
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: gha-${{ github.run_id }}
 
-      - name: Who am I?
-        run: aws sts get-caller-identity
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
 
-      - name: Derive env vars
-        shell: bash
+      - name: Terraform Init
+        working-directory: infrastructure
+        run: terraform init -input=false
+
+      # Ajusta estas -var con tus valores por defecto o usa repo variables si prefieres
+      - name: Terraform Apply
+        working-directory: infrastructure
+        env:
+          TF_IN_AUTOMATION: "true"
         run: |
-          echo "CLUSTER_NAME=${PROJECT_NAME}-cluster" >> $GITHUB_ENV
-          echo "SERVICE_NAME=${PROJECT_NAME}-svc" >> $GITHUB_ENV
-          echo "ECR_FRONTEND=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-frontend" >> $GITHUB_ENV
-          echo "ECR_BACKEND=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-backend" >> $GITHUB_ENV
+          terraform apply -auto-approve \
+            -var="github_owner=${{ vars.GITHUB_OWNER || 'gcOssi' }}" \
+            -var="github_repo=${{ vars.GITHUB_REPO || 'spark6' }}" \
+            -var="alert_email=${{ vars.ALERT_EMAIL || 'gcadddbrera@ddd.cl' }}" \
+            -var="image_tag=latest" \
+            -var="build_platform=linux/amd64" \
+            -var="react_app_api_url=${{ vars.REACT_APP_API_URL || '/api' }}"
+
+      - name: Capture Terraform outputs
+        id: capture
+        working-directory: infrastructure
+        run: |
+          echo "ECS_CLUSTER=$(terraform output -raw ecs_cluster)" >> $GITHUB_OUTPUT
+          echo "ECS_SERVICE=$(terraform output -raw ecs_service)" >> $GITHUB_OUTPUT
+          echo "ECR_FRONTEND=$(terraform output -raw ecr_frontend)" >> $GITHUB_OUTPUT
+          echo "ECR_BACKEND=$(terraform output -raw ecr_backend)" >> $GITHUB_OUTPUT
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    needs: provision-infra
+    env:
+      CLUSTER_NAME: ${{ needs.provision-infra.outputs.ECS_CLUSTER }}
+      SERVICE_NAME: ${{ needs.provision-infra.outputs.ECS_SERVICE }}
+      ECR_FRONTEND: ${{ needs.provision-infra.outputs.ECR_FRONTEND }}
+      ECR_BACKEND:  ${{ needs.provision-infra.outputs.ECR_BACKEND }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # por si aún tienes submódulos
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      # Crea repos si faltan (usa AES256 por defecto; evita errores KMS)
       - name: Ensure ECR repositories exist
         shell: bash
         run: |
@@ -86,22 +110,20 @@ jobs:
             fi
           done
 
-      - name: Build & Push BACKEND (linux)
+      - name: Build & Push BACKEND (linux/amd64)
         run: |
-          docker build \
-            --platform linux/amd64 \
+          docker build --platform linux/amd64 \
             -t "$ECR_BACKEND:${IMAGE_TAG}" \
             -t "$ECR_BACKEND:latest" \
             ./backend
           docker push "$ECR_BACKEND:${IMAGE_TAG}"
           docker push "$ECR_BACKEND:latest"
 
-      - name: Build & Push FRONTEND
+      - name: Build & Push FRONTEND (linux/amd64)
         env:
-          REACT_APP_API_URL: /api
+          REACT_APP_API_URL: ${{ vars.REACT_APP_API_URL || '/api' }}
         run: |
-          docker build \
-            --platform linux/amd64 \
+          docker build --platform linux/amd64 \
             --build-arg REACT_APP_API_URL=$REACT_APP_API_URL \
             -t "$ECR_FRONTEND:${IMAGE_TAG}" \
             -t "$ECR_FRONTEND:latest" \
@@ -109,22 +131,18 @@ jobs:
           docker push "$ECR_FRONTEND:${IMAGE_TAG}"
           docker push "$ECR_FRONTEND:latest"
 
+      # Tomamos una TD base (del service o la última de la familia) y registramos nueva revisión
       - name: Resolve base task definition
         id: base_td
         shell: bash
         run: |
           set -euo pipefail
           FAMILY="${PROJECT_NAME}-task"
-
-          echo "Resolving base Task Definition for family: $FAMILY"
-          # 1) Intentar desde el servicio
           TD_ARN=$(aws ecs describe-services \
             --cluster "$CLUSTER_NAME" \
             --services "$SERVICE_NAME" \
             --query 'services[0].taskDefinition' \
             --output text 2>/dev/null || true)
-
-          # 2) Si no hay TD en el servicio, listar por familia
           if [[ -z "$TD_ARN" || "$TD_ARN" == "None" ]]; then
             TD_ARN=$(aws ecs list-task-definitions \
               --family-prefix "$FAMILY" \
@@ -132,25 +150,19 @@ jobs:
               --query 'taskDefinitionArns[0]' \
               --output text 2>/dev/null || true)
           fi
-
           if [[ -z "$TD_ARN" || "$TD_ARN" == "None" ]]; then
-            echo "::error::No existing Task Definition found for family '$FAMILY'. Ejecuta 'terraform apply' para crear la TD inicial y el servicio ECS."
+            echo "::error::No Task Definition found for family '$FAMILY'. Run Terraform first."
             exit 1
           fi
-
-          echo "TD_ARN=$TD_ARN" >> $GITHUB_OUTPUT
           aws ecs describe-task-definition \
             --task-definition "$TD_ARN" \
             --query taskDefinition > td.json
-          jq -r '.taskDefinitionArn' td.json || true
 
-      - name: Prepare new task definition with updated images (sanitize keys)
+      - name: Prepare new task definition with updated images (sanitize)
         id: taskdef
         shell: bash
         run: |
           set -euo pipefail
-
-          # Actualiza imágenes de frontend/backend
           jq \
             --arg fe "$ECR_FRONTEND:${IMAGE_TAG}" \
             --arg be "$ECR_BACKEND:${IMAGE_TAG}" \
@@ -161,7 +173,6 @@ jobs:
               else .
               end
             ))
-            # Mantén SOLO las claves válidas para register-task-definition
             | {
                 family, taskRoleArn, executionRoleArn, networkMode,
                 containerDefinitions, volumes, placementConstraints,
@@ -169,17 +180,9 @@ jobs:
                 proxyConfiguration, inferenceAccelerators, ephemeralStorage,
                 runtimePlatform, enableFaultInjection
               }
-            # Elimina atributos nulos (AWS no acepta nulls)
             | with_entries(select(.value != null))
             ' td.json > td-new.json
 
-          # (Opcional) asegurar FARGATE si tu TD lo necesita
-          if ! jq -e '.requiresCompatibilities | index("FARGATE")' td-new.json >/dev/null; then
-            jq '.requiresCompatibilities = ( .requiresCompatibilities // [] + ["FARGATE"] | unique )' td-new.json > td-fixed.json
-            mv td-fixed.json td-new.json
-          fi
-
-          # Registrar nueva revisión
           NEW_TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://td-new.json \
             --query taskDefinition.taskDefinitionArn \
@@ -188,19 +191,18 @@ jobs:
           echo "NEW_TD_ARN=$NEW_TD_ARN" >> $GITHUB_OUTPUT
           echo "Registered: $NEW_TD_ARN"
 
-      - name: Check ECS cluster & service exist and are ACTIVE
+      - name: Check ECS cluster & service
         shell: bash
         run: |
           set -euo pipefail
-          STATUS=$(aws ecs describe-clusters --clusters "$CLUSTER_NAME" --query 'clusters[0].status' --output text 2>/dev/null || true)
+          STATUS=$(aws ecs describe-clusters --clusters "$CLUSTER_NAME" --query 'clusters[0].status' --output text || true)
           if [[ -z "$STATUS" || "$STATUS" == "INACTIVE" || "$STATUS" == "None" ]]; then
-            echo "::error::ECS cluster '$CLUSTER_NAME' no existe o está INACTIVE. Ejecuta 'terraform apply' para (re)crear la infraestructura."
+            echo "::error::ECS cluster '$CLUSTER_NAME' no existe o está INACTIVE."
             exit 1
           fi
-
-          SVC=$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].status' --output text 2>/dev/null || true)
+          SVC=$(aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].status' --output text || true)
           if [[ -z "$SVC" || "$SVC" == "INACTIVE" || "$SVC" == "None" ]]; then
-            echo "::error::ECS service '$SERVICE_NAME' no existe. Asegúrate de aprovisionarlo con Terraform."
+            echo "::error::ECS service '$SERVICE_NAME' no existe. Terraform debe crearlo."
             exit 1
           fi
 
