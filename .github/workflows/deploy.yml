@@ -144,19 +144,42 @@ jobs:
             --query taskDefinition > td.json
           jq -r '.taskDefinitionArn' td.json || true
 
-      - name: Prepare new task definition with updated images
+      - name: Prepare new task definition with updated images (sanitize keys)
         id: taskdef
         shell: bash
         run: |
           set -euo pipefail
+
+          # Actualiza imágenes de frontend/backend
           jq \
             --arg fe "$ECR_FRONTEND:${IMAGE_TAG}" \
             --arg be "$ECR_BACKEND:${IMAGE_TAG}" \
-            '(.containerDefinitions[] | select(.name=="frontend").image) |= $fe |
-            (.containerDefinitions[] | select(.name=="backend").image)  |= $be |
-            del(.revision, .status, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
-            td.json > td-new.json
+            '
+            .containerDefinitions |= (map(
+              if .name=="frontend" then .image=$fe
+              elif .name=="backend" then .image=$be
+              else .
+              end
+            ))
+            # Mantén SOLO las claves válidas para register-task-definition
+            | {
+                family, taskRoleArn, executionRoleArn, networkMode,
+                containerDefinitions, volumes, placementConstraints,
+                requiresCompatibilities, cpu, memory, tags, pidMode, ipcMode,
+                proxyConfiguration, inferenceAccelerators, ephemeralStorage,
+                runtimePlatform, enableFaultInjection
+              }
+            # Elimina atributos nulos (AWS no acepta nulls)
+            | with_entries(select(.value != null))
+            ' td.json > td-new.json
 
+          # (Opcional) asegurar FARGATE si tu TD lo necesita
+          if ! jq -e '.requiresCompatibilities | index("FARGATE")' td-new.json >/dev/null; then
+            jq '.requiresCompatibilities = ( .requiresCompatibilities // [] + ["FARGATE"] | unique )' td-new.json > td-fixed.json
+            mv td-fixed.json td-new.json
+          fi
+
+          # Registrar nueva revisión
           NEW_TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://td-new.json \
             --query taskDefinition.taskDefinitionArn \
@@ -164,6 +187,7 @@ jobs:
 
           echo "NEW_TD_ARN=$NEW_TD_ARN" >> $GITHUB_OUTPUT
           echo "Registered: $NEW_TD_ARN"
+
 
       - name: Update ECS service to new task definition
         run: |
