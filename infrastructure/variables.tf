@@ -14,12 +14,20 @@ variable "az_count" {
 }
 
 # GitHub OIDC
-variable "github_owner" {
-  type = string
+variable "gh_owner" {
+  type        = string
+  description = "GitHub org/owner usado en el OIDC condition"
 }
 
-variable "github_repo" {
-  type = string
+variable "gh_repo" {
+  type        = string
+  description = "GitHub repo usado en el OIDC condition"
+}
+
+variable "alarm_email" {
+  type        = string
+  description = "Email to subscribe to SNS alerts"
+  default     = "gcabrera@binarios.cl"
 }
 
 # Basic auth for staging
