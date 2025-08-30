@@ -109,22 +109,52 @@ jobs:
           docker push "$ECR_FRONTEND:${IMAGE_TAG}"
           docker push "$ECR_FRONTEND:latest"
 
+      - name: Resolve base task definition
+        id: base_td
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAMILY="${PROJECT_NAME}-task"
+
+          echo "Resolving base Task Definition for family: $FAMILY"
+          # 1) Intentar desde el servicio
+          TD_ARN=$(aws ecs describe-services \
+            --cluster "$CLUSTER_NAME" \
+            --services "$SERVICE_NAME" \
+            --query 'services[0].taskDefinition' \
+            --output text 2>/dev/null || true)
+
+          # 2) Si no hay TD en el servicio, listar por familia
+          if [[ -z "$TD_ARN" || "$TD_ARN" == "None" ]]; then
+            TD_ARN=$(aws ecs list-task-definitions \
+              --family-prefix "$FAMILY" \
+              --sort DESC --max-items 1 \
+              --query 'taskDefinitionArns[0]' \
+              --output text 2>/dev/null || true)
+          fi
+
+          if [[ -z "$TD_ARN" || "$TD_ARN" == "None" ]]; then
+            echo "::error::No existing Task Definition found for family '$FAMILY'. Ejecuta 'terraform apply' para crear la TD inicial y el servicio ECS."
+            exit 1
+          fi
+
+          echo "TD_ARN=$TD_ARN" >> $GITHUB_OUTPUT
+          aws ecs describe-task-definition \
+            --task-definition "$TD_ARN" \
+            --query taskDefinition > td.json
+          jq -r '.taskDefinitionArn' td.json || true
+
       - name: Prepare new task definition with updated images
         id: taskdef
         shell: bash
         run: |
-          FAMILY="${PROJECT_NAME}-task"
-          aws ecs describe-task-definition \
-            --task-definition "$FAMILY" \
-            --query taskDefinition > td.json
-
-          # swap images to new tags, keep everything else
+          set -euo pipefail
           jq \
             --arg fe "$ECR_FRONTEND:${IMAGE_TAG}" \
             --arg be "$ECR_BACKEND:${IMAGE_TAG}" \
             '(.containerDefinitions[] | select(.name=="frontend").image) |= $fe |
-             (.containerDefinitions[] | select(.name=="backend").image)  |= $be |
-             del(.revision, .status, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            (.containerDefinitions[] | select(.name=="backend").image)  |= $be |
+            del(.revision, .status, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             td.json > td-new.json
 
           NEW_TD_ARN=$(aws ecs register-task-definition \
@@ -133,6 +163,7 @@ jobs:
             --output text)
 
           echo "NEW_TD_ARN=$NEW_TD_ARN" >> $GITHUB_OUTPUT
+          echo "Registered: $NEW_TD_ARN"
 
       - name: Update ECS service to new task definition
         run: |
