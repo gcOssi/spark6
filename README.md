@@ -1,4 +1,4 @@
-# Staging: ECS Fargate + ALB (+ optional CloudFront) with CI/CD and Basic Auth
+# Staging: ECS Fargate + ALB + CloudFront with CI/CD and Basic Auth
 
 This repo is ready to deploy a **React frontend + Node.js API** (Dockerized) on **AWS ECS Fargate**, fronted by an **ALB** and optionally **CloudFront** (for HTTPS without a custom domain). The frontend runs behind **HTTP Basic Auth** and proxies `/api` to the backend, keeping the API private.
 
