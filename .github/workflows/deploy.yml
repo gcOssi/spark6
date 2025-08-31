@@ -20,7 +20,6 @@ env:
   FE_NGINX_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_FE }}-nginx
   BE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_BE }}
 
-
   # Variables Terraform (incluye las del backend para la policy IAM)
   TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
   TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
@@ -48,6 +47,15 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.8.5
+
+      - name: Terraform Init
+        working-directory: ./infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          terraform init -input=false ${INIT_FLAGS} \
+            -backend-config="encrypt=true"
 
       - name: Import IAM role if it already exists
         working-directory: ./infrastructure
