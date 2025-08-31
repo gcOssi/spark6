@@ -1,15 +1,17 @@
 graph LR
-  A[User] -->|HTTPS| CF{{CloudFront}}
+  A[User] -->|HTTPS| CF[CloudFront]
   CF -->|HTTP/HTTPS| ALB[ALB]
-  ALB -->|:80| FE[nginx (frontend)]
+  ALB -->|:80| FE[nginx frontend]
   FE -->|proxy /api| BE[Node API 4000]
+  
   subgraph ECS Fargate Task
-  FE
-  BE
+    FE
+    BE
   end
-  ECR[(ECR front/back)] --> ECS[ECS]
-  SSM[(SSM Basic Auth)] --> FE
-  CW((CloudWatch Logs)) --> ECS
-  SNS((SNS Alerts)) --> CW
-  VPC((VPC Public/Private Subnets)) --- ALB
-  VPC --- ECS
+  
+  ECR[ECR front/back] --> ECS[ECS]
+  SSM[SSM Basic Auth] --> FE
+  CW[CloudWatch Logs] --> ECS
+  SNS[SNS Alerts] --> CW
+  VPC[VPC Public/Private Subnets] --> ALB
+  VPC --> ECS
