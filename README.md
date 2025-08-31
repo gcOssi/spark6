@@ -42,7 +42,7 @@ Keep your local docker-compose as reference. In our setup, healthcheck and ports
   - `ECR_REPO_BE`→ Backend repo name
   - `ECR_REPO_FE`→ Frontend repo name
   - `GH_OWNER`   → Owner name github
-  - `GH_REPO`    → Repositori name github
+  - `GH_REPO`    → Repo name github
 
 ## Basic Auth
 - Credentials are stored in **SSM**:
