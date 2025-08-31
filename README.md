@@ -38,9 +38,7 @@ Keep your local docker-compose as reference. In our setup, healthcheck and ports
   - `/${project_name}/basic_auth/user`
   - `/${project_name}/basic_auth/password`
 - The `frontend` entrypoint creates `/etc/nginx/.htpasswd` at runtime. All routes (including `/api`) require Basic Auth.
-- ##Default Credentials
-  user: `staging`
-  pass: `staging`
+- Default Credentials `staging`/`staging`
 
 ## Monitoring
 - CloudWatch alarm: **CPUUtilization > 70%** (2×5min) → SNS email to `var.alert_email`.
