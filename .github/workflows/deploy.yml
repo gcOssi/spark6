@@ -54,8 +54,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          terraform init -input=false ${INIT_FLAGS} \
-            -backend-config="encrypt=true"
+          terraform init -input=false
 
       - name: Import IAM role if it already exists
         working-directory: ./infrastructure
