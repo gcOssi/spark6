@@ -17,11 +17,13 @@ variable "az_count" {
 variable "gh_owner" {
   type        = string
   description = "GitHub org/owner usado en el OIDC condition"
+  default     = ${var.gh_owner}
 }
 
 variable "gh_repo" {
   type        = string
   description = "GitHub repo usado en el OIDC condition"
+  default     = ${var.gh_repo}
 }
 
 variable "alert_email" {

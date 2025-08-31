@@ -4,6 +4,8 @@ locals {
     Project = var.project_name
     Stage   = "staging"
   }
+  git_owner = var.gh_owner
+  git_repo  = var.gh_repo 
 }
 
 # Origen público (CloudFront si está habilitado, sino ALB)
@@ -561,12 +563,10 @@ data "aws_iam_policy_document" "gha_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:var.gh_owner/var.gh_repo:environment:staging","repo:var.gh_owner/var.gh_repo:ref:refs/heads/main"]
+      values   = ["repo:local.git_owner/local.git_repo:environment:staging","repo:local.git_owner/local.git_repo:ref:refs/heads/main"]
     }
   }
 }
-
-
 
 resource "aws_iam_role" "gha_deploy_role" {
   name               = "${local.name}-gha"
