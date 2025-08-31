@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import AuthForm from './AuthForm';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:4000';
 
 function App() {
   const [user, setUser] = useState(null);
