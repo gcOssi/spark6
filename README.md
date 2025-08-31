@@ -30,8 +30,19 @@ Keep your local docker-compose as reference. In our setup, healthcheck and ports
 ## CI/CD (GitHub Actions)
 - On push to `main`, the workflow:
   1) assumes the AWS role (OIDC), 2) logs in to ECR, 3) builds & pushes images, 4) registers a new **task definition** revision, and 5) **forces a new deployment** of the ECS service.
+
+- Create your `staging` Environment
+
 - You must set these repo secrets:
   - `AWS_DEPLOY_ROLE_ARN` → from Terraform output `github_actions_role_arn`.
+  - `AWS_ACCOUNT_ID`→ from AWS ID account
+
+- You must set these repo variables:
+  - `AWS_REGION` → from Terraform output `github_actions_role_arn`.
+  - `ECR_REPO_BE`→ Backend repo name
+  - `ECR_REPO_FE`→ Frontend repo name
+  - `GH_OWNER`   → Owner name github
+  - `GH_REPO`    → Repositori name github
 
 ## Basic Auth
 - Credentials are stored in **SSM**:
