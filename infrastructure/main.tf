@@ -4,8 +4,6 @@ locals {
     Project = var.project_name
     Stage   = "staging"
   }
-  git_owner = var.gh_owner
-  git_repo  = var.gh_repo 
 }
 
 # Origen público (CloudFront si está habilitado, sino ALB)
