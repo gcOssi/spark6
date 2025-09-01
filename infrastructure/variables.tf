@@ -14,12 +14,12 @@ variable "az_count" {
 }
 
 # GitHub OIDC
-variable "gh_owner" {
+variable "git_owner" {
   type        = string
   description = "GitHub org/owner usado en el OIDC condition"
 }
 
-variable "gh_repo" {
+variable "git_repo" {
   type        = string
   description = "GitHub repo usado en el OIDC condition"
 }

@@ -563,7 +563,7 @@ data "aws_iam_policy_document" "gha_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:local.git_owner/local.git_repo:environment:staging","repo:local.git_owner/local.git_repo:ref:refs/heads/main"]
+      values   = ["repo:${var.git_owner}/${var.git_repo}:environment:staging","repo:${var.git_owner}/${var.git_repo}:ref:refs/heads/main"]
     }
   }
 }
