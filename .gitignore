@@ -11,3 +11,4 @@ infrastructure/bootstrap/.terraform.lock.hcl
 infrastructure/bootstrap/.terraform
 infrastructure/bootstrap/terraform.tfstate
 infrastructure/bootstrap/terraform.tfstate.backup
+infrastructure/script
