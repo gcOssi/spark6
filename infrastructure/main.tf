@@ -22,6 +22,7 @@ data "aws_iam_openid_connect_provider" "github" {
   arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
+
 ######################
 # Networking (VPC)  #
 ######################
@@ -274,12 +275,14 @@ resource "aws_ssm_parameter" "basic_auth_user" {
   type  = "SecureString"
   value = var.basic_auth_user
   tags  = local.tags
+  overwrite   = true
 }
 resource "aws_ssm_parameter" "basic_auth_password" {
   name  = "/${local.name}/basic_auth/password"
   type  = "SecureString"
   value = var.basic_auth_password
   tags  = local.tags
+  overwrite   = true
 }
 
 ######################
@@ -607,6 +610,38 @@ data "aws_iam_policy_document" "gha_policy" {
   statement {
     actions = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
     resources = ["*"]
+  }
+  statement {
+    actions = [
+      "s3:CreateBucket",
+      "s3:PutBucketVersioning",
+      "s3:PutEncryptionConfiguration",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:GetBucketLocation",
+      "s3:ListBucket"
+    ]
+    resources = ["arn:aws:s3:::${var.tfstate_bucket_name}"]
+  }
+
+  statement {
+    actions = [
+      "s3:GetObject", "s3:PutObject", "s3:DeleteObject"
+    ]
+    resources = ["arn:aws:s3:::${var.tfstate_bucket_name}/*"]
+  }
+
+  statement {
+    actions = [
+      "dynamodb:CreateTable",
+      "dynamodb:DescribeTable",
+      "dynamodb:UpdateTable",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem"
+    ]
+    resources = [
+      "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.tfstate_lock_table}"
+    ]
   }
 }
 

@@ -1,0 +1,70 @@
+name: IaC - Staging
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      TF_BUCKET: tfstate-staging-dashboard-123456789012   # <-- cambia al tuyo
+      TF_TABLE: terraform-locks
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<YOUR_ACCOUNT_ID>:role/staging-dashboard-gha  # <-- tu rol GHA
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 1) BOOTSTRAP (crea/adopta S3+DDB)
+      - name: Bootstrap backend
+        run: |
+          set -euo pipefail
+          terraform -chdir=bootstrap init -no-color
+
+          # Importa si existen
+          if aws s3api head-bucket --bucket "$TF_BUCKET" 2>/dev/null; then
+            terraform -chdir=bootstrap import -no-color aws_s3_bucket.tfstate "$TF_BUCKET" || true
+          fi
+          if aws dynamodb describe-table --table-name "$TF_TABLE" >/dev/null 2>&1; then
+            terraform -chdir=bootstrap import -no-color aws_dynamodb_table.locks "$TF_TABLE" || true
+          fi
+
+          # Crea/ajusta
+          terraform -chdir=bootstrap apply -no-color -auto-approve \
+            -var "region=${AWS_REGION}" \
+            -var "bucket_name=${TF_BUCKET}" \
+            -var "dynamodb_table_name=${TF_TABLE}"
+
+      # 2) INIT backend S3 en el módulo raíz
+      - name: Terraform init (root)
+        run: |
+          terraform init -reconfigure \
+            -backend-config=backend-staging.hcl
+
+      # 3) IMPORTS idempotentes (si faltan en state)
+      - name: Import existing AWS resources
+        run: |
+          chmod +x scripts/import_existing.sh
+          ./scripts/import_existing.sh "staging-dashboard"
+
+      # 4) PLAN + APPLY
+      - name: Terraform plan
+        run: terraform plan -no-color
+
+      - name: Terraform apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -no-color -auto-approve

@@ -102,3 +102,13 @@ variable "cors_allow_methods" {
   type        = string
   default     = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 }
+
+variable "tfstate_bucket_name" {
+  type    = string
+  default = "tfstate-staging-dashboard-123456789012"  # sincronizado con backend-staging.hcl
+}
+
+variable "tfstate_lock_table" {
+  type    = string
+  default = "terraform-locks"
+}
