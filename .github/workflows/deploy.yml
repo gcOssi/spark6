@@ -77,6 +77,9 @@ jobs:
                   
       - name: Terraform Apply
         working-directory: ./infrastructure
+        env:
+          TF_VAR_git_owner: ${{ vars.GH_OWNER }}
+          TF_VAR_git_repo: ${{ vars.GH_REPO }}
         run: terraform apply -auto-approve -input=false
 
       - name: Login to ECR
