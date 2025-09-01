@@ -98,10 +98,12 @@ jobs:
             aws ecr create-repository --repository-name "$r" >/dev/null
           done
 
-      - name: Build & Push Frontend
+      - name: Docker build frontend
         working-directory: ./frontend
         run: |
-          docker build -t "$FE_IMAGE:latest" .
+          docker build \
+            --build-arg REACT_APP_API_URL="${{ steps.tfout.outputs.api_url }}" \
+            -t $FE_IMAGE:latest .
           docker push "$FE_IMAGE:latest"
 
       - name: Build & Push Backend
