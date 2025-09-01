@@ -6,7 +6,7 @@ infrastructure/terraform.tfstate
 infrastructure/terraform.tfstate.backup
 .vscode
 .github/.DS_Store
-.frontend/node_modules
+frontend/node_modules
 infrastructure/bootstrap/.terraform.lock.hcl
 infrastructure/bootstrap/.terraform
 infrastructure/bootstrap/terraform.tfstate
