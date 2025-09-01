@@ -21,8 +21,8 @@ env:
   BE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_BE }}
 
   # Variables Terraform (incluye las del backend para la policy IAM)
-  TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
-  TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
+  TF_VAR_git_owner: ${{ vars.GH_OWNER }}
+  TF_VAR_git_repo:  ${{ vars.GH_REPO }}
   TF_VAR_name_prefix: staging
 
 jobs:
