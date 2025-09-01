@@ -82,6 +82,10 @@ jobs:
           TF_VAR_git_repo: ${{ vars.GH_REPO }}
         run: terraform apply -auto-approve -input=false
 
+      - name: Export API URL from Terraform
+        working-directory: ./infrastructure
+        run: echo "REACT_APP_API_URL=$(terraform output -raw cloudfront_domain)" >> $GITHUB_ENV
+
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
